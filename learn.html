@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韓語 TOPIK 詞彙學習站</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap');
+        body { font-family: 'Noto Sans TC', 'Noto Sans KR', sans-serif; background-color: #f0f9ff; }
+        .korean { font-family: 'Noto Sans KR', sans-serif; }
+        .card-flip { perspective: 1000px; }
+        .card-inner { transition: transform 0.6s; transform-style: preserve-3d; cursor: pointer; position: relative; height: 200px; }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .card-back { transform: rotateY(180deg); background-color: #e0f2fe; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="pb-10">
+    <nav class="bg-sky-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="font-bold text-xl">TOPIK 詞彙大師</h1>
+            <div class="space-x-4">
+                <button onclick="switchTab('list')" class="hover:text-sky-200">單字表</button>
+                <button onclick="switchTab('flashcard')" class="hover:text-sky-200">短期記憶(字卡)</button>
+                <button onclick="switchTab('typing')" class="hover:text-sky-200">長期記憶(拼寫)</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto mt-8 px-4">
+        <div class="flex justify-center mb-8 bg-white p-2 rounded-xl shadow-sm inline-flex">
+            <button id="btn-beginner" onclick="setLevel('beginner')" class="px-6 py-2 rounded-lg bg-sky-500 text-white font-bold">初級</button>
+            <button id="btn-intermediate" onclick="setLevel('intermediate')" class="px-6 py-2 rounded-lg text-slate-500">中級</button>
+        </div>
+
+        <div id="list" class="tab-content active">
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-sky-100">
+                <table class="w-full text-left">
+                    <thead class="bg-sky-50 text-sky-700">
+                        <tr>
+                            <th class="p-4">韓文 (發音)</th>
+                            <th class="p-4">分類</th>
+                            <th class="p-4">意思/用法</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vocab-table-body" class="divide-y divide-slate-100">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="flashcard" class="tab-content text-center">
+            <div class="max-w-sm mx-auto">
+                <div class="card-flip" onclick="this.querySelector('.card-inner').classList.toggle('flipped')">
+                    <div class="card-inner" id="flashcard-inner">
+                        <div class="card-front bg-white border-2 border-sky-200">
+                            <div class="text-4xl font-bold korean text-sky-800" id="fc-korean">가게</div>
+                        </div>
+                        <div class="card-back border-2 border-sky-400">
+                            <div class="text-2xl text-slate-700" id="fc-chinese">店、店鋪</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 space-x-4">
+                    <button onclick="prevCard()" class="p-3 bg-white border border-sky-200 rounded-full hover:bg-sky-50"><i class="fas fa-arrow-left"></i></button>
+                    <button onclick="speakCurrent()" class="p-4 bg-sky-500 text-white rounded-full shadow-lg hover:bg-sky-600"><i class="fas fa-volume-up"></i></button>
+                    <button onclick="nextCard()" class="p-3 bg-white border border-sky-200 rounded-full hover:bg-sky-50"><i class="fas fa-arrow-right"></i></button>
+                </div>
+                <p class="mt-4 text-slate-400 text-sm">點擊卡片翻轉查看意思</p>
+            </div>
+        </div>
+
+        <div id="typing" class="tab-content text-center">
+            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-sky-100 max-w-lg mx-auto">
+                <div class="text-sm text-sky-600 font-bold mb-2" id="type-category">名詞</div>
+                <div class="text-3xl mb-6 text-slate-800" id="type-meaning">這是一個「意思」</div>
+                <input type="text" id="type-input" placeholder="請拼寫韓文..." class="w-full p-4 border-2 border-slate-200 rounded-xl text-center text-2xl korean focus:border-sky-500 outline-none mb-4">
+                <div id="type-feedback" class="h-8 mb-4 font-bold"></div>
+                <button onclick="checkTyping()" class="w-full py-4 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-700 shadow-lg">檢查答案</button>
+                <button onclick="nextTyping()" class="mt-4 text-sky-500 font-bold">跳過此詞</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 從 Excel 提取的部分範例數據
+        const beginnerData = [
+            { kr: "가게", type: "名詞", meaning: "店、店鋪", guide: "에 가다" },
+            { kr: "가깝다", type: "形容詞", meaning: "近的", guide: "거리가" },
+            { kr: "가방", type: "名詞", meaning: "書包、包包", guide: "을 메다" },
+            { kr: "가르치다", type: "動詞", meaning: "教、教導", guide: "한국어를" },
+            { kr: "가을", type: "名詞", meaning: "秋天", guide: "계절" }
+        ];
+
+        const intermediateData = [
+            { kr: "가꾸다", type: "動詞", meaning: "培育、裝扮", guide: "나무를 가꾸다" },
+            { kr: "가능성", type: "名詞", meaning: "可能性", guide: "이 높다" },
+            { kr: "가로막다", type: "動詞", meaning: "阻擋、攔截", guide: "길을" },
+            { kr: "가치관", type: "名詞", meaning: "價值觀", guide: "이 바뀌다" },
+            { kr: "경제적", type: "冠詞·名詞", meaning: "經濟的", guide: "능력" }
+        ];
+
+        let currentLevel = 'beginner';
+        let currentIndex = 0;
+        let db = beginnerData;
+
+        // 初始化
+        function init() {
+            renderList();
+            updateFlashcard();
+            updateTyping();
+        }
+
+        function setLevel(level) {
+            currentLevel = level;
+            db = level === 'beginner' ? beginnerData : intermediateData;
+            currentIndex = 0;
+            
+            // 按鈕樣式切換
+            document.getElementById('btn-beginner').className = level === 'beginner' ? "px-6 py-2 rounded-lg bg-sky-500 text-white font-bold" : "px-6 py-2 rounded-lg text-slate-500";
+            document.getElementById('btn-intermediate').className = level === 'intermediate' ? "px-6 py-2 rounded-lg bg-sky-500 text-white font-bold" : "px-6 py-2 rounded-lg text-slate-500";
+            
+            init();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function renderList() {
+            const tbody = document.getElementById('vocab-table-body');
+            tbody.innerHTML = db.map(item => `
+                <tr class="hover:bg-sky-50 transition">
+                    <td class="p-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="korean font-bold text-sky-900">${item.kr}</span>
+                            <button onclick="speak('${item.kr}')" class="text-sky-400 hover:text-sky-600"><i class="fas fa-volume-up"></i></button>
+                        </div>
+                    </td>
+                    <td class="p-4"><span class="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600">${item.type}</span></td>
+                    <td class="p-4">
+                        <div class="font-bold">${item.meaning}</div>
+                        <div class="text-xs text-slate-400">用法: ${item.guide}</div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 語音功能
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 字卡邏輯
+        function updateFlashcard() {
+            document.getElementById('fc-korean').innerText = db[currentIndex].kr;
+            document.getElementById('fc-chinese').innerText = db[currentIndex].meaning;
+            document.getElementById('flashcard-inner').classList.remove('flipped');
+        }
+
+        function nextCard() { currentIndex = (currentIndex + 1) % db.length; updateFlashcard(); }
+        function prevCard() { currentIndex = (currentIndex - 1 + db.length) % db.length; updateFlashcard(); }
+        function speakCurrent() { speak(db[currentIndex].kr); }
+
+        // 拼寫邏輯
+        function updateTyping() {
+            document.getElementById('type-meaning').innerText = db[currentIndex].meaning;
+            document.getElementById('type-category').innerText = db[currentIndex].type;
+            document.getElementById('type-input').value = "";
+            document.getElementById('type-feedback').innerText = "";
+        }
+
+        function checkTyping() {
+            const input = document.getElementById('type-input').value.trim();
+            const feedback = document.getElementById('type-feedback');
+            if (input === db[currentIndex].kr) {
+                feedback.innerText = "正確！太棒了 🎉";
+                feedback.className = "h-8 mb-4 font-bold text-emerald-500";
+                speak(db[currentIndex].kr);
+                setTimeout(nextTyping, 1500);
+            } else {
+                feedback.innerText = "再試一次喔！";
+                feedback.className = "h-8 mb-4 font-bold text-rose-500";
+            }
+        }
+
+        function nextTyping() {
+            currentIndex = (currentIndex + 1) % db.length;
+            updateTyping();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
