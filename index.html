@@ -1,68 +1,107 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Heart, Plane, TrendingUp, Plus, History, CheckCircle2, Zap, Trash2, Wallet, AlertTriangle, X } from 'lucide-react';
+import { 
+  Heart, Plane, TrendingUp, Plus, History, CheckCircle2, 
+  Zap, Trash2, Wallet, AlertTriangle, Settings, Building, 
+  Edit3, Save, Landmark, Coins, DollarSign 
+} from 'lucide-react';
 
-const GOALS = {
-  wedding: { 
-    id: 'wedding',
-    title: '結婚基金', 
-    target: 100000, 
-    icon: Heart, 
-    color: 'text-rose-500', 
-    bg: 'bg-rose-500',
-    lightBg: 'bg-rose-50',
-    type: 'shared'
-  },
-  travel: { 
-    id: 'travel',
-    title: '旅行基金', 
-    target: 40000, 
-    icon: Plane, 
-    color: 'text-blue-500', 
-    bg: 'bg-blue-500',
-    lightBg: 'bg-blue-50',
-    type: 'shared'
-  },
-  personalUser: { 
-    id: 'personalUser',
-    title: '👩🏻 我的資產', 
-    target: 102000, // 8500 * 12
-    icon: TrendingUp, 
-    color: 'text-emerald-500', 
-    bg: 'bg-emerald-500',
-    lightBg: 'bg-emerald-50',
-    type: 'individual_user'
-  },
-  personalFiance: { 
-    id: 'personalFiance',
-    title: '🧑🏻 他的資產', 
-    target: 96000, // 8000 * 12
-    icon: Wallet, 
-    color: 'text-indigo-500', 
-    bg: 'bg-indigo-500',
-    lightBg: 'bg-indigo-50',
-    type: 'individual_fiance'
-  }
+const ICON_MAP = {
+  Heart: Heart,
+  Plane: Plane,
+  TrendingUp: TrendingUp,
+  Wallet: Wallet
 };
 
 export default function App() {
-  // 交易紀錄狀態 (從 localStorage 初始化)
+  // 1. 交易紀錄狀態
   const [transactions, setTransactions] = useState(() => {
     try {
-      const saved = localStorage.getItem('coupleFinanceTxs_v3');
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      const saved = localStorage.getItem('coupleFinanceTxs_v4');
+      if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error('Failed to load transactions:', e);
     }
     return [];
   });
-  
+
+  // 2. 自訂目標金額狀態 (可調節)
+  const [goals, setGoals] = useState(() => {
+    try {
+      const saved = localStorage.getItem('coupleFinanceGoals_v4');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load goals:', e);
+    }
+    return {
+      wedding: { 
+        id: 'wedding',
+        title: '結婚基金', 
+        target: 100000, 
+        iconName: 'Heart', 
+        color: 'text-rose-500', 
+        bg: 'bg-rose-500',
+        lightBg: 'bg-rose-50',
+        type: 'shared'
+      },
+      travel: { 
+        id: 'travel',
+        title: '旅行基金', 
+        target: 40000, 
+        iconName: 'Plane', 
+        color: 'text-blue-500', 
+        bg: 'bg-blue-500',
+        lightBg: 'bg-blue-50',
+        type: 'shared'
+      },
+      personalUser: { 
+        id: 'personalUser',
+        title: '👩🏻 我的資產', 
+        target: 102000, // 8500 * 12
+        iconName: 'TrendingUp', 
+        color: 'text-emerald-500', 
+        bg: 'bg-emerald-500',
+        lightBg: 'bg-emerald-50',
+        type: 'individual_user'
+      },
+      personalFiance: { 
+        id: 'personalFiance',
+        title: '🧑🏻 他的資產', 
+        target: 96000, // 8000 * 12
+        iconName: 'Wallet', 
+        color: 'text-indigo-500', 
+        bg: 'bg-indigo-500',
+        lightBg: 'bg-indigo-50',
+        type: 'individual_fiance'
+      }
+    };
+  });
+
+  // 3. 實時帳戶結餘狀態 (可編輯)
+  const [accounts, setAccounts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('coupleFinanceAccounts_v4');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load accounts:', e);
+    }
+    return [
+      { id: 'mortgageLink', name: '🏠 Mortgage-Link (👩🏻)', balance: 0, desc: '停泊結婚基金 & 我的個人儲蓄' },
+      { id: 'virtualBank', name: '✈️ 虛擬銀行子戶口', balance: 0, desc: '專用高息活期旅行基金' },
+      { id: 'userBrokerage', name: '📈 👩🏻 美股證券戶口', balance: 0, desc: '個人長線定投 (VOO)' },
+      { id: 'fianceSavings', name: '💼 🧑🏻 個人儲蓄戶口', balance: 0, desc: '他的個人流動儲蓄' }
+    ];
+  });
+
+  // UI 控制狀態
   const [selectedGoal, setSelectedGoal] = useState('wedding');
   const [contributor, setContributor] = useState('user'); 
   const [amount, setAmount] = useState('');
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState(null);
+  const [tempBalance, setTempBalance] = useState('');
 
-  // 自訂模態視窗狀態 (替代 window.confirm)
+  // 自訂模態確認視窗
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     type: '', // 'delete' | 'clear'
@@ -70,21 +109,29 @@ export default function App() {
     message: ''
   });
 
-  // 每次 transactions 更新時保存
+  // 監聽並持久化保存所有狀態到 localStorage
   useEffect(() => {
-    localStorage.setItem('coupleFinanceTxs_v3', JSON.stringify(transactions));
+    localStorage.setItem('coupleFinanceTxs_v4', JSON.stringify(transactions));
   }, [transactions]);
 
-  // 當選擇特定個人目標時自動鎖定貢獻者
   useEffect(() => {
-    if (GOALS[selectedGoal].type === 'individual_user') {
+    localStorage.setItem('coupleFinanceGoals_v4', JSON.stringify(goals));
+  }, [goals]);
+
+  useEffect(() => {
+    localStorage.setItem('coupleFinanceAccounts_v4', JSON.stringify(accounts));
+  }, [accounts]);
+
+  // 當選擇特定個人目標時，自動鎖定貢獻者
+  useEffect(() => {
+    if (goals[selectedGoal].type === 'individual_user') {
       setContributor('user');
-    } else if (GOALS[selectedGoal].type === 'individual_fiance') {
+    } else if (goals[selectedGoal].type === 'individual_fiance') {
       setContributor('fiance');
     }
-  }, [selectedGoal]);
+  }, [selectedGoal, goals]);
 
-  // 計算累積進度
+  // 計算累積記帳進度
   const progress = useMemo(() => {
     const totals = { wedding: 0, travel: 0, personalUser: 0, personalFiance: 0 };
     transactions.forEach(t => {
@@ -105,68 +152,122 @@ export default function App() {
     if (!amount || isNaN(amount) || amount <= 0) return;
 
     let finalContributor = contributor;
-    if (GOALS[selectedGoal].type === 'individual_user') finalContributor = 'user';
-    if (GOALS[selectedGoal].type === 'individual_fiance') finalContributor = 'fiance';
+    if (goals[selectedGoal].type === 'individual_user') finalContributor = 'user';
+    if (goals[selectedGoal].type === 'individual_fiance') finalContributor = 'fiance';
+
+    const amt = parseFloat(amount);
 
     const newTx = {
       id: Date.now().toString(),
       date: new Date().toLocaleDateString('zh-HK'),
       goalId: selectedGoal,
       contributor: finalContributor,
-      amount: parseFloat(amount)
+      amount: amt
     };
 
     setTransactions([newTx, ...transactions]);
+
+    // 💡 同時智慧聯動：嘗試更新對應帳戶的記帳結餘
+    setAccounts(prevAccounts => {
+      return prevAccounts.map(acc => {
+        if (selectedGoal === 'wedding' && acc.id === 'mortgageLink') {
+          return { ...acc, balance: acc.balance + amt };
+        }
+        if (selectedGoal === 'travel' && acc.id === 'virtualBank') {
+          return { ...acc, balance: acc.balance + amt };
+        }
+        if (selectedGoal === 'personalUser' && acc.id === 'userBrokerage') {
+          return { ...acc, balance: acc.balance + amt };
+        }
+        if (selectedGoal === 'personalFiance' && acc.id === 'fianceSavings') {
+          return { ...acc, balance: acc.balance + amt };
+        }
+        return acc;
+      });
+    });
+
     setAmount('');
   };
 
   // 一鍵存入本月全目標 ($25,500)
-  // 共同部分每人 4,500（合計 9,000），按比例拆分為：結婚 $5,625，旅行 $3,375
   const handleQuickMonth = () => {
     const date = new Date().toLocaleDateString('zh-HK');
     const timestamp = Date.now();
     const quickTxs = [
-      // 結婚基金 (每月 $5,625，雙方各自存入 $2,812.5)
       { id: `${timestamp}-w1`, date, goalId: 'wedding', contributor: 'user', amount: 2812.5 },
       { id: `${timestamp}-w2`, date, goalId: 'wedding', contributor: 'fiance', amount: 2812.5 },
-      // 旅行基金 (每月 $3,375，雙方各自存入 $1,687.5)
       { id: `${timestamp}-t1`, date, goalId: 'travel', contributor: 'user', amount: 1687.5 },
       { id: `${timestamp}-t2`, date, goalId: 'travel', contributor: 'fiance', amount: 1687.5 },
-      // 我個人儲蓄 ($8,500)
       { id: `${timestamp}-pu`, date, goalId: 'personalUser', contributor: 'user', amount: 8500 },
-      // 他個人儲蓄 ($8,000)
       { id: `${timestamp}-pf`, date, goalId: 'personalFiance', contributor: 'fiance', amount: 8000 },
     ];
     setTransactions([...quickTxs, ...transactions]);
+
+    // 一鍵同步到實體帳戶結餘
+    setAccounts(prevAccounts => {
+      return prevAccounts.map(acc => {
+        if (acc.id === 'mortgageLink') return { ...acc, balance: acc.balance + 5625 }; // 結婚 5625
+        if (acc.id === 'virtualBank') return { ...acc, balance: acc.balance + 3375 };   // 旅行 3375
+        if (acc.id === 'userBrokerage') return { ...acc, balance: acc.balance + 8500 }; // 👩🏻個人 8500
+        if (acc.id === 'fianceSavings') return { ...acc, balance: acc.balance + 8000 }; // 🧑🏻個人 8000
+        return acc;
+      });
+    });
   };
 
-  // 觸發自訂刪除確認
+  // 修改目標金額
+  const handleTargetChange = (goalId, newTarget) => {
+    if (isNaN(newTarget) || newTarget < 0) return;
+    setGoals(prev => ({
+      ...prev,
+      [goalId]: {
+        ...prev[goalId],
+        target: parseFloat(newTarget) || 0
+      }
+    }));
+  };
+
+  // 開始編輯帳戶結餘
+  const startEditingAccount = (id, currentBalance) => {
+    setEditingAccountId(id);
+    setTempBalance(currentBalance.toString());
+  };
+
+  // 儲存帳戶結餘
+  const saveAccountBalance = (id) => {
+    const newBal = parseFloat(tempBalance);
+    if (isNaN(newBal) || newBal < 0) return;
+    setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, balance: newBal } : acc));
+    setEditingAccountId(null);
+  };
+
+  // 觸發自訂刪除與清除
   const triggerDelete = (id) => {
     setConfirmModal({
       isOpen: true,
       type: 'delete',
       targetId: id,
-      message: '確定要刪除此筆存款紀錄嗎？'
+      message: '確定要刪除此筆存款紀錄嗎？（注意：此操作不會自動扣減您手動設定的帳戶結餘）'
     });
   };
 
-  // 觸發自訂重置確認
   const triggerClear = () => {
     setConfirmModal({
       isOpen: true,
       type: 'clear',
       targetId: null,
-      message: '警告：這將會清除所有的歷史存款紀錄並將所有進度歸零。確定要執行此操作嗎？'
+      message: '警告：這將會清除所有的歷史存款紀錄，並將所有記帳進度與帳戶結餘歸零。確定嗎？'
     });
   };
 
-  // 執行確認的操作
   const handleConfirmAction = () => {
     if (confirmModal.type === 'delete' && confirmModal.targetId) {
       setTransactions(transactions.filter(t => t.id !== confirmModal.targetId));
     } else if (confirmModal.type === 'clear') {
       setTransactions([]);
-      localStorage.removeItem('coupleFinanceTxs_v3');
+      setAccounts(prev => prev.map(acc => ({ ...acc, balance: 0 })));
+      localStorage.removeItem('coupleFinanceTxs_v4');
+      localStorage.removeItem('coupleFinanceAccounts_v4');
     }
     closeConfirmModal();
   };
@@ -179,15 +280,32 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto space-y-8">
         
+        {}
         {/* Header & 頂部每月任務面板 */}
         <header className="space-y-6">
-          <div className="text-center md:text-left">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              💍 我們的專屬儲蓄追蹤器
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              簡單、純粹、透明。每天都在離未來更近一步。
-            </p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="text-center md:text-left">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center justify-center md:justify-start gap-2">
+                💍 我們的專屬儲蓄追蹤器
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">
+                簡單、純粹、透明。每天都在離未來更近一步。
+              </p>
+            </div>
+            
+            <div className="flex justify-center gap-2">
+              <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                  showSettings 
+                    ? 'bg-slate-900 border-slate-900 text-white shadow-sm' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Settings size={16} />
+                <span>⚙️ 調整儲蓄目標</span>
+              </button>
+            </div>
           </div>
           
           {/* 雙人每月儲蓄任務 */}
@@ -216,13 +334,56 @@ export default function App() {
           </div>
         </header>
 
+        {}
+        {/* 目標調節面板 (可開關) */}
+        {showSettings && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4 animate-in slide-in-from-top-4 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-950 flex items-center gap-2">
+                <Settings className="text-slate-500" size={20} />
+                調整儲蓄目標金額
+              </h3>
+              <p className="text-xs text-slate-400">修改將即時更新下方進度條</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.values(goals).map((g) => {
+                const Icon = ICON_MAP[g.iconName];
+                return (
+                  <div key={g.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${g.lightBg} ${g.color}`}>
+                        <Icon size={16} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700">{g.title}</span>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 mb-1">目標金額 (HKD)</label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">$</span>
+                        <input
+                          type="number"
+                          value={g.target}
+                          onChange={(e) => handleTargetChange(g.id, e.target.value)}
+                          className="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {}
         {/* 四大進度卡片 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {Object.values(GOALS).map((goal) => {
+          {Object.values(goals).map((goal) => {
             const current = progress[goal.id];
             const target = goal.target;
-            const percentage = Math.min(100, (current / target) * 100).toFixed(1);
-            const Icon = goal.icon;
+            const percentage = target > 0 ? Math.min(100, (current / target) * 100).toFixed(1) : '0.0';
+            const Icon = ICON_MAP[goal.iconName];
 
             return (
               <div key={goal.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
@@ -261,6 +422,69 @@ export default function App() {
           })}
         </div>
 
+        {}
+        {/* 實時帳戶結餘面板 (新功能) */}
+        <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-6">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <Landmark className="text-slate-400" size={22} />
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">🏦 實時真實帳戶結餘</h3>
+              <p className="text-xs text-slate-500">對應您實體銀行 App / 證券 App 的真實狀況。記帳時結餘會自動累加，您亦可點擊修改隨時手動校對。</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {accounts.map((acc) => (
+              <div key={acc.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-slate-100/50 transition-colors flex flex-col justify-between space-y-3">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-800">{acc.name}</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed h-8">{acc.desc}</p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                  {editingAccountId === acc.id ? (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">$</span>
+                        <input
+                          type="number"
+                          value={tempBalance}
+                          onChange={(e) => setTempBalance(e.target.value)}
+                          className="w-full pl-5 pr-2 py-1 border border-slate-300 rounded text-xs font-bold focus:outline-none"
+                          placeholder="現時結餘"
+                          autoFocus
+                        />
+                      </div>
+                      <button 
+                        onClick={() => saveAccountBalance(acc.id)}
+                        className="p-1 bg-slate-900 hover:bg-slate-800 text-white rounded transition-colors"
+                        title="儲存"
+                      >
+                        <Save size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <span className="text-xs text-slate-400 block">實際結餘</span>
+                        <span className="text-base font-extrabold text-slate-900">{formatMoney(acc.balance)}</span>
+                      </div>
+                      <button 
+                        onClick={() => startEditingAccount(acc.id, acc.balance)}
+                        className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-200/50 rounded-lg transition-colors"
+                        title="手動修改結餘"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {}
         {/* 記賬操作與歷史流水 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
@@ -285,7 +509,7 @@ export default function App() {
                 <span>一鍵存入本月全目標 ($25,500)</span>
               </button>
               <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                點擊將自動分配：共同基金各入 $4,500（總 $9,000）+ 我個人 $8,500 + 他個人 $8,000
+                將自動分配：共同基金各入 $4,500（總 $9,000）+ 我個人 $8,500 + 他個人 $8,000，並自動累積至帳戶結餘
               </p>
             </div>
 
@@ -299,7 +523,7 @@ export default function App() {
                     onChange={(e) => setSelectedGoal(e.target.value)}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
                   >
-                    {Object.values(GOALS).map(g => (
+                    {Object.values(goals).map(g => (
                       <option key={g.id} value={g.id}>{g.title}</option>
                     ))}
                   </select>
@@ -311,9 +535,9 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setContributor('user')}
-                      disabled={GOALS[selectedGoal].type === 'individual_fiance'}
+                      disabled={goals[selectedGoal].type === 'individual_fiance'}
                       className={`py-1.5 text-xs rounded-md transition-all ${
-                        contributor === 'user' && GOALS[selectedGoal].type !== 'individual_fiance'
+                        contributor === 'user' && goals[selectedGoal].type !== 'individual_fiance'
                           ? 'bg-white text-slate-800 font-bold shadow-sm'
                           : 'text-slate-500 opacity-60'
                       }`}
@@ -323,9 +547,9 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setContributor('fiance')}
-                      disabled={GOALS[selectedGoal].type === 'individual_user'}
+                      disabled={goals[selectedGoal].type === 'individual_user'}
                       className={`py-1.5 text-xs rounded-md transition-all ${
-                        contributor === 'fiance' && GOALS[selectedGoal].type !== 'individual_user'
+                        contributor === 'fiance' && goals[selectedGoal].type !== 'individual_user'
                           ? 'bg-white text-slate-800 font-bold shadow-sm'
                           : 'text-slate-500 opacity-60'
                       }`}
@@ -385,7 +609,7 @@ export default function App() {
                 </div>
               ) : (
                 transactions.map((tx) => {
-                  const goalInfo = GOALS[tx.goalId];
+                  const goalInfo = goals[tx.goalId];
                   return (
                     <div key={tx.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100/80 border border-slate-100 transition-colors group">
                       <div className="flex items-center space-x-3">
@@ -421,6 +645,7 @@ export default function App() {
         </div>
       </div>
 
+      {}
       {/* 自訂確認視窗 (Modal) */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
